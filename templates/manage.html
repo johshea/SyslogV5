@@ -1,87 +1,109 @@
 {% extends "base.html" %}
 {% block content %}
 <h2 class="mb-3">Management</h2>
-<div class="row g-3">
-  <div class="col-lg-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Overview</h5>
-        <p>Total events: <strong>{{ total }}</strong></p>
-        <p>Latest event: <strong>{% if latest %}{{ latest.received_at.strftime('%Y-%m-%d %H:%M:%S') }}{% else %}—{% endif %}</strong></p>
-        <p>Known hosts: <span class="badge bg-secondary">{{ hosts|length }}</span></p>
-        <a class="btn btn-outline-primary" href="{{ url_for('export_csv') }}">Export all (CSV)</a>
-        {% if current_user.is_reviewer and not current_user.is_admin %}
-        <div class="form-text mt-2">Reviewer role: read & export only. No deletes.</div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
 
-  <div class="col-lg-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">User Management</h5>
-        <p class="mb-2">Create, reset passwords, and delete users.</p>
-        {% if current_user.is_admin %}
-          <a class="btn btn-outline-secondary" href="{{ url_for('manage_users') }}">Open users admin</a>
-        {% else %}
-          <p class="text-muted small mb-0">Admin only</p>
-        {% endif %}
-      </div>
-    </div>
-  </div>
+<ul class="nav nav-tabs" id="manageTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab!='users' %}active{% endif %}" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="{{ 'true' if active_tab!='users' else 'false' }}">Logs</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab=='users' %}active{% endif %} {% if not current_user.is_admin %}disabled{% endif %}" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab" aria-controls="users" aria-selected="{{ 'true' if active_tab=='users' else 'false' }}">Users</button>
+  </li>
+</ul>
 
-  <div class="col-lg-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Auto-Purge (Retention)</h5>
-        <p class="mb-2">Automatically delete events older than the specified days.</p>
-        {% if current_user.is_admin %}
-        <form method="post" action="{{ url_for('set_retention') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-          <div class="input-group mb-2">
-            <span class="input-group-text">Days</span>
-            <input class="form-control" type="number" name="retention_days" min="0" placeholder="e.g., 30" value="{{ retention_days or '' }}">
-            <button class="btn btn-outline-primary" type="submit">Save</button>
+<div class="tab-content pt-3" id="manageTabsContent">
+  <div class="tab-pane fade {% if active_tab!='users' %}show active{% endif %}" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+    <!-- Logs tab content: moved original cards here -->
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Overview</h5>
+            <p>Total events: <strong>{{ total }}</strong></p>
+            <p>Latest event: <strong>{% if latest %}{{ latest.received_at.strftime('%Y-%m-%d %H:%M:%S') }}{% else %}—{% endif %}</strong></p>
+            <p>Known hosts: <span class="badge bg-secondary">{{ hosts|length }}</span></p>
+            <a class="btn btn-outline-primary" href="{{ url_for('export_csv') }}">Export all (CSV)</a>
+            {% if current_user.is_reviewer and not current_user.is_admin %}
+            <div class="form-text mt-2">Reviewer role: read & export only. No deletes.</div>
+            {% endif %}
           </div>
-          <div class="form-text">Enter <code>0</code> or empty to disable. Checked hourly by default (<code>RETENTION_CHECK_SECONDS</code>).</div>
-          {% if retention_last %}<div class="small text-muted mt-2">Last purge: {{ retention_last }}</div>{% endif %}
-        </form>
-        {% else %}
-          <p class="text-muted small mb-0">Admin only</p>
-        {% endif %}
+        </div>
       </div>
-    </div>
-  </div>
 
-  {% if current_user.is_admin %}
-  <div class="col-lg-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Delete older than N days</h5>
-        <form method="post" action="{{ url_for('delete_older') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-          <div class="input-group">
-            <input class="form-control" type="number" name="days" min="1" placeholder="e.g., 30">
-            <button class="btn btn-danger" type="submit">Delete</button>
+      <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Auto-Purge (Retention)</h5>
+            <p class="mb-2">Automatically delete events older than the specified days.</p>
+            {% if current_user.is_admin %}
+            <form method="post" action="{{ url_for('set_retention') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <div class="input-group mb-2">
+                <span class="input-group-text">Days</span>
+                <input class="form-control" type="number" name="retention_days" min="0" placeholder="e.g., 30" value="{{ retention_days or '' }}">
+                <button class="btn btn-outline-primary" type="submit">Save</button>
+              </div>
+              <div class="form-text">Enter <code>0</code> or empty to disable. Checked hourly by default (<code>RETENTION_CHECK_SECONDS</code>).</div>
+              {% if retention_last %}<div class="small text-muted mt-2">Last purge: {{ retention_last }}</div>{% endif %}
+            </form>
+            {% else %}
+              <p class="text-muted small mb-0">Admin only</p>
+            {% endif %}
           </div>
-          <div class="form-text">This permanently removes records older than the number of days.</div>
-        </form>
+        </div>
       </div>
+
+      {% if current_user.is_admin %}
+      <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Delete older than N days</h5>
+            <form method="post" action="{{ url_for('delete_older') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <div class="input-group">
+                <input class="form-control" type="number" name="days" min="1" placeholder="e.g., 30">
+                <button class="btn btn-danger" type="submit">Delete</button>
+              </div>
+              <div class="form-text">This permanently removes records older than the number of days.</div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title text-danger">Delete EVERYTHING</h5>
+            <form method="post" action="{{ url_for('delete_all') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button class="btn btn-outline-danger" type="submit" onclick="return confirm('Really delete ALL events?');">Delete all events</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
 
-  <div class="col-lg-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title text-danger">Delete EVERYTHING</h5>
-        <form method="post" action="{{ url_for('delete_all') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-          <button class="btn btn-outline-danger" type="submit" onclick="return confirm('Really delete ALL events?');">Delete all events</button>
-        </form>
-      </div>
-    </div>
+  <div class="tab-pane fade {% if active_tab=='users' %}show active{% endif %}" id="users" role="tabpanel" aria-labelledby="users-tab">
+    {% if current_user.is_admin %}
+      {% set _ = users %}
+      {% include 'users_tab.html' %}
+    {% else %}
+      <div class="alert alert-warning">User Management is admin-only.</div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
+
+<script>
+// If ?tab=users is in URL, ensure the users tab gets selected on load (for hard reloads)
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  if (tab === 'users') {
+    const trigger = document.querySelector('#users-tab');
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
+})();
+</script>
 {% endblock %}

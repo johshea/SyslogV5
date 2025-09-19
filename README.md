@@ -1,4 +1,4 @@
-# Flask Syslog Server (with Roles, TCP/UDP, Retention, Realtime UI)
+# Miles Syslog Server (with Roles, TCP/UDP, Retention, Realtime UI)
 
 A production-friendly, self‑hosted syslog receiver and viewer:
 

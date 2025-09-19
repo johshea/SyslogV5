@@ -1,0 +1,13 @@
+/* Custom tweaks on top of Bootstrap */
+pre { white-space: pre-wrap; word-wrap: break-word; }
+.message-cell { max-width: 680px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table thead th { position: sticky; top: 0; z-index: 1; }
+/* Severity color helpers (0..7) */
+.badge.bg-sev-0 { background-color: #0d6efd; }
+.badge.bg-sev-1 { background-color: #6f42c1; }
+.badge.bg-sev-2 { background-color: #198754; }
+.badge.bg-sev-3 { background-color: #20c997; }
+.badge.bg-sev-4 { background-color: #0dcaf0; color:#000; }
+.badge.bg-sev-5 { background-color: #ffc107; color:#000; }
+.badge.bg-sev-6 { background-color: #fd7e14; }
+.badge.bg-sev-7 { background-color: #dc3545; }

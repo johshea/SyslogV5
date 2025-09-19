@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h2 class="mb-0">Users</h2>
+  <a class="btn btn-outline-secondary ms-3" href="{{ url_for('manage') }}">Back to Manage</a>
+</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Create user</h5>
+        <form method="post" action="{{ url_for('manage_users_create') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input class="form-control" name="username" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input class="form-control" name="password" type="password" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Role</label>
+            <select class="form-select" name="role">
+              <option value="user">user</option>
+              <option value="reviewer">reviewer</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Create</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Existing users</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr><th>Username</th><th>Role</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+            {% for u in users %}
+              <tr>
+                <td class="fw-medium">{{ u.username }}</td>
+                <td>
+                  {% if u.is_admin %}<span class="badge bg-danger">admin</span>{% elif u.is_reviewer %}<span class="badge bg-info text-dark">reviewer</span>{% else %}<span class="badge bg-secondary">user</span>{% endif %}
+                </td>
+                <td class="text-end">
+                  <form class="d-inline" method="post" action="{{ url_for('manage_users_reset', uid=u.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="input-group input-group-sm" style="max-width: 280px; display: inline-flex;">
+                      <input class="form-control" type="password" name="new_password" placeholder="new password">
+                      <select class="form-select" name="role">
+                        <option value="">(keep role)</option>
+                        <option value="user">user</option>
+                        <option value="reviewer">reviewer</option>
+                        <option value="admin">admin</option>
+                      </select>
+                      <button class="btn btn-outline-primary" type="submit">Update</button>
+                    </div>
+                  </form>
+                  <form class="d-inline ms-2" method="post" action="{{ url_for('manage_users_delete', uid=u.id) }}" onsubmit="return confirm('Delete user {{ u.username }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button class="btn btn-outline-danger btn-sm" type="submit" {% if u.id == current_user.id %}disabled title="Cannot delete your own account"{% endif %}>Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

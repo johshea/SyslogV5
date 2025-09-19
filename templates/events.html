@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h2 class="mb-0">Events</h2>
+  <span class="ms-3 text-muted small">Use filters below to narrow results.</span>
+</div>
+
+<!-- Realtime card -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center justify-content-between">
+      <h5 class="card-title mb-0">Realtime (updates every 10s)</h5>
+      <div class="btn-group btn-group-sm" role="group">
+        <button id="rt-toggle" class="btn btn-outline-secondary">Pause</button>
+        <button id="rt-clear" class="btn btn-outline-secondary">Clear</button>
+      </div>
+    </div>
+    <ul class="list-group list-group-flush mt-2" id="realtime-list"></ul>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2">
+      <div class="col-sm-2"><input class="form-control" name="host" value="{{ args.get('host','') }}" placeholder="Host"></div>
+      <div class="col-sm-2"><input class="form-control" name="app" value="{{ args.get('app','') }}" placeholder="App"></div>
+      <div class="col-sm-2"><input class="form-control" name="srcip" value="{{ args.get('srcip','') }}" placeholder="Source IP"></div>
+      <div class="col-sm-1"><input class="form-control" name="severity" value="{{ args.get('severity','') }}" placeholder="Sev"></div>
+      <div class="col-sm-1"><input class="form-control" name="facility" value="{{ args.get('facility','') }}" placeholder="Fac"></div>
+      <div class="col-sm-1">
+        <select class="form-select" name="proto">
+          <option value="">Proto</option>
+          <option value="UDP" {% if args.get('proto')=='UDP' %}selected{% endif %}>UDP</option>
+          <option value="TCP" {% if args.get('proto')=='TCP' %}selected{% endif %}>TCP</option>
+        </select>
+      </div>
+      <div class="col-sm-3"><input class="form-control" name="q" value="{{ args.get('q','') }}" placeholder="Search message"></div>
+      <div class="col-md-3"><input class="form-control" type="datetime-local" name="start" value="{{ args.get('start','') }}" placeholder="Start"></div>
+      <div class="col-md-3"><input class="form-control" type="datetime-local" name="end" value="{{ args.get('end','') }}" placeholder="End"></div>
+      <div class="col-sm-2">
+        <select class="form-select" name="sort">
+          {% set sort = args.get('sort','received_at') %}
+          <option value="received_at" {{ 'selected' if sort=='received_at' else '' }}>Sort: Time</option>
+          <option value="host" {{ 'selected' if sort=='host' else '' }}>Host</option>
+          <option value="app" {{ 'selected' if sort=='app' else '' }}>App</option>
+          <option value="severity" {{ 'selected' if sort=='severity' else '' }}>Severity</option>
+          <option value="facility" {{ 'selected' if sort=='facility' else '' }}>Facility</option>
+          <option value="source_ip" {{ 'selected' if sort=='source_ip' else '' }}>Source IP</option>
+          <option value="protocol" {{ 'selected' if sort=='protocol' else '' }}>Protocol</option>
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <select class="form-select" name="order">
+          {% set order = args.get('order','desc') %}
+          <option value="desc" {{ 'selected' if order=='desc' else '' }}>Desc</option>
+          <option value="asc" {{ 'selected' if order=='asc' else '' }}>Asc</option>
+        </select>
+      </div>
+      <div class="col-sm-2"><input class="form-control" name="per_page" value="{{ args.get('per_page','50') }}" placeholder="Per page"></div>
+      <div class="col-sm-2 d-grid"><button class="btn btn-primary" type="submit">Apply</button></div>
+      <div class="col-sm-2 d-grid">
+        <a class="btn btn-outline-secondary" href="{{ url_for('export_csv') }}?{{ request.query_string.decode() }}">Export CSV</a>
+      </div>
+      <div class="col-sm-2 d-grid">
+        <a class="btn btn-outline-light border" href="{{ url_for('index') }}">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-responsive shadow-sm">
+<table class="table table-sm table-hover table-striped align-middle">
+  <thead class="table-light position-sticky top-0">
+    <tr>
+      <th>ID</th><th>Time</th><th>Host</th><th>Fac</th><th>Sev</th><th>App</th><th>Proto</th><th>Src IP</th><th>Message</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ev in events %}
+    <tr>
+      <td><a class="link-primary" href="{{ url_for('event_detail', event_id=ev.id) }}">{{ ev.id }}</a></td>
+      <td><span class="font-monospace">{{ ev.received_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
+      <td>{{ ev.host or '' }}</td>
+      <td>{{ ev.facility if ev.facility is not none else '' }}</td>
+      <td><span class="badge bg-sev-{{ ev.severity if ev.severity is not none else 'x' }}">{{ ev.severity if ev.severity is not none else '' }}</span></td>
+      <td>{{ ev.app_name or '' }}</td>
+      <td>{{ ev.protocol or '' }}</td>
+      <td class="font-monospace">{{ ev.source_ip or '' }}{% if ev.source_port %}:{{ ev.source_port }}{% endif %}</td>
+      <td class="text-truncate message-cell">{{ ev.message }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
+<nav aria-label="pager" class="mt-3">
+  <ul class="pagination">
+    {% set base_url = request.path ~ ('?' + base_qs if base_qs else '') %}
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a class="page-link" href="{{ base_url }}{{ '&' if base_qs else '?' }}page={{ page-1 }}&per_page={{ per_page }}">Prev</a>
+    </li>
+    <li class="page-item disabled"><span class="page-link">Page {{ page }} / {{ total_pages if total_pages else 1 }}</span></li>
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a class="page-link" href="{{ base_url }}{{ '&' if base_qs else '?' }}page={{ page+1 }}&per_page={{ per_page }}">Next</a>
+    </li>
+  </ul>
+</nav>
+
+{% if total == 0 %}
+<div class="alert alert-info shadow-sm">No events yet. Point a syslog sender at:
+<ul class="mb-0">
+  <li>UDP: <code>udp://&lt;server&gt;:{{ config['SYSLOG_PORT'] }}</code></li>
+  <li>TCP: <code>tcp://&lt;server&gt;:{{ config['SYSLOG_TCP_PORT'] }}</code></li>
+</ul>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  const list = document.getElementById('realtime-list');
+  if (!list) return;
+  let lastId = null;
+  let running = true;
+  let timer = null;
+  const limitKeep = 50;
+  async function fetchRecent() {
+    try {
+      let url = '/api/events/recent?limit=20' + (lastId ? ('&since_id=' + encodeURIComponent(lastId)) : '');
+      const resp = await fetch(url, {cache: 'no-store'});
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data || !Array.isArray(data.events)) return;
+      for (const ev of data.events) {
+        lastId = Math.max(lastId || 0, ev.id);
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-3';
+        const sev = (ev.severity === null || ev.severity === undefined) ? 'x' : ev.severity;
+        li.innerHTML = `
+          <div class="small text-muted text-nowrap font-monospace">${ev.received_at || ''}</div>
+          <div class="badge bg-sev-${sev} align-self-start">${ev.severity ?? ''}</div>
+          <div class="flex-grow-1">
+            <div class="small">
+              <strong>${ev.host || ''}</strong>
+              <span class="text-muted">• ${ev.app_name || ''} • ${ev.protocol || ''} ${ev.source_ip || ''}${ev.source_port ? ':' + ev.source_port : ''}</span>
+            </div>
+            <div class="text-truncate">${(ev.message || '').replace(/</g,'&lt;')}</div>
+          </div>
+        `;
+        list.prepend(li);
+        while (list.children.length > limitKeep) list.removeChild(list.lastElementChild);
+      }
+    } catch (e) {}
+  }
+  function start(){ if (timer) clearInterval(timer); timer=setInterval(fetchRecent, 10000); fetchRecent(); }
+  function stop(){ if (timer) { clearInterval(timer); timer=null; } }
+  document.getElementById('rt-toggle')?.addEventListener('click', function(){ running=!running; if(running){ this.textContent='Pause'; start(); } else { this.textContent='Resume'; stop(); } });
+  document.getElementById('rt-clear')?.addEventListener('click', function(){ lastId=null; list.innerHTML=''; });
+  start();
+})();
+</script>
+
+{% endblock %}

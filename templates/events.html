@@ -5,20 +5,32 @@
   <span class="ms-3 text-muted small">Use filters below to narrow results.</span>
 </div>
 
-<!-- Realtime card -->
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <div class="d-flex align-items-center justify-content-between">
-      <h5 class="card-title mb-0">Realtime (updates every 10s)</h5>
-      <div class="btn-group btn-group-sm" role="group">
-        <button id="rt-toggle" class="btn btn-outline-secondary">Pause</button>
-        <button id="rt-clear" class="btn btn-outline-secondary">Clear</button>
+<!-- Sticky / collapsible search bar -->
+<div class="sticky-search shadow-sm border-bottom">
+  <div class="d-lg-none d-flex justify-content-between align-items-center">
+    <strong class="text-muted">Search &amp; Filters</strong>
+    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#searchCollapse" aria-expanded="true" aria-controls="searchCollapse">
+      <span id="searchChevron" class="chev" aria-hidden="true">▾</span>
+    </button>
+  </div>
+  <div id="searchCollapse" class="collapse show dont-collapse-lg">
+    <form method="get" class="mb-3">
+      <div class="input-group">
+        <input class="form-control" name="q" value="{{ args.get('q','') }}" placeholder="Search messages">
+        <button class="btn btn-primary" type="submit">Search</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Clear</a>
       </div>
-    </div>
-    <ul class="list-group list-group-flush mt-2" id="realtime-list"></ul>
+      {# preserve other filters when searching #}
+      {% for k, v in args.items() %}
+        {% if k not in ['q','page'] and v %}
+          <input type="hidden" name="{{ k }}" value="{{ v }}">
+        {% endif %}
+      {% endfor %}
+    </form>
   </div>
 </div>
 
+<!-- Filters card -->
 <div class="card shadow-sm mb-3">
   <div class="card-body">
     <form method="get" class="row g-2">
@@ -34,7 +46,6 @@
           <option value="TCP" {% if args.get('proto')=='TCP' %}selected{% endif %}>TCP</option>
         </select>
       </div>
-      <div class="col-sm-3"><input class="form-control" name="q" value="{{ args.get('q','') }}" placeholder="Search message"></div>
       <div class="col-md-3"><input class="form-control" type="datetime-local" name="start" value="{{ args.get('start','') }}" placeholder="Start"></div>
       <div class="col-md-3"><input class="form-control" type="datetime-local" name="end" value="{{ args.get('end','') }}" placeholder="End"></div>
       <div class="col-sm-2">
@@ -68,95 +79,47 @@
   </div>
 </div>
 
-<div class="table-responsive shadow-sm">
-<table class="table table-sm table-hover table-striped align-middle">
-  <thead class="table-light position-sticky top-0">
-    <tr>
-      <th>ID</th><th>Time</th><th>Host</th><th>Fac</th><th>Sev</th><th>App</th><th>Proto</th><th>Src IP</th><th>Message</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for ev in events %}
-    <tr>
-      <td><a class="link-primary" href="{{ url_for('event_detail', event_id=ev.id) }}">{{ ev.id }}</a></td>
-      <td><span class="font-monospace">{{ ev.received_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
-      <td>{{ ev.host or '' }}</td>
-      <td>{{ ev.facility if ev.facility is not none else '' }}</td>
-      <td><span class="badge bg-sev-{{ ev.severity if ev.severity is not none else 'x' }}">{{ ev.severity if ev.severity is not none else '' }}</span></td>
-      <td>{{ ev.app_name or '' }}</td>
-      <td>{{ ev.protocol or '' }}</td>
-      <td class="font-monospace">{{ ev.source_ip or '' }}{% if ev.source_port %}:{{ ev.source_port }}{% endif %}</td>
-      <td class="text-truncate message-cell">{{ ev.message }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<!-- Updated indicator + table -->
+<div class="d-flex justify-content-end align-items-center mb-2">
+  <span id="update-indicator" class="small text-muted">—</span>
 </div>
-
-{% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
-<nav aria-label="pager" class="mt-3">
-  <ul class="pagination">
-    {% set base_url = request.path ~ ('?' + base_qs if base_qs else '') %}
-    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-      <a class="page-link" href="{{ base_url }}{{ '&' if base_qs else '?' }}page={{ page-1 }}&per_page={{ per_page }}">Prev</a>
-    </li>
-    <li class="page-item disabled"><span class="page-link">Page {{ page }} / {{ total_pages if total_pages else 1 }}</span></li>
-    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-      <a class="page-link" href="{{ base_url }}{{ '&' if base_qs else '?' }}page={{ page+1 }}&per_page={{ per_page }}">Next</a>
-    </li>
-  </ul>
-</nav>
-
-{% if total == 0 %}
-<div class="alert alert-info shadow-sm">No events yet. Point a syslog sender at:
-<ul class="mb-0">
-  <li>UDP: <code>udp://&lt;server&gt;:{{ config['SYSLOG_PORT'] }}</code></li>
-  <li>TCP: <code>tcp://&lt;server&gt;:{{ config['SYSLOG_TCP_PORT'] }}</code></li>
-</ul>
-</div>
-{% endif %}
+<div id="events-table-wrap">{% include "events_table.html" %}</div>
 
 <script>
 (function(){
-  const list = document.getElementById('realtime-list');
-  if (!list) return;
-  let lastId = null;
-  let running = true;
-  let timer = null;
-  const limitKeep = 50;
-  async function fetchRecent() {
-    try {
-      let url = '/api/events/recent?limit=20' + (lastId ? ('&since_id=' + encodeURIComponent(lastId)) : '');
-      const resp = await fetch(url, {cache: 'no-store'});
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (!data || !Array.isArray(data.events)) return;
-      for (const ev of data.events) {
-        lastId = Math.max(lastId || 0, ev.id);
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex align-items-start gap-3';
-        const sev = (ev.severity === null || ev.severity === undefined) ? 'x' : ev.severity;
-        li.innerHTML = `
-          <div class="small text-muted text-nowrap font-monospace">${ev.received_at || ''}</div>
-          <div class="badge bg-sev-${sev} align-self-start">${ev.severity ?? ''}</div>
-          <div class="flex-grow-1">
-            <div class="small">
-              <strong>${ev.host || ''}</strong>
-              <span class="text-muted">• ${ev.app_name || ''} • ${ev.protocol || ''} ${ev.source_ip || ''}${ev.source_port ? ':' + ev.source_port : ''}</span>
-            </div>
-            <div class="text-truncate">${(ev.message || '').replace(/</g,'&lt;')}</div>
-          </div>
-        `;
-        list.prepend(li);
-        while (list.children.length > limitKeep) list.removeChild(list.lastElementChild);
-      }
-    } catch (e) {}
+  // Chevron rotate on collapse
+  var col = document.getElementById('searchCollapse');
+  var chev = document.getElementById('searchChevron');
+  if (col && chev) {
+    function setChevron(){ if (col.classList.contains('show')) chev.classList.remove('rot'); else chev.classList.add('rot'); }
+    col.addEventListener('shown.bs.collapse', setChevron);
+    col.addEventListener('hidden.bs.collapse', setChevron);
+    setChevron();
   }
-  function start(){ if (timer) clearInterval(timer); timer=setInterval(fetchRecent, 10000); fetchRecent(); }
-  function stop(){ if (timer) { clearInterval(timer); timer=null; } }
-  document.getElementById('rt-toggle')?.addEventListener('click', function(){ running=!running; if(running){ this.textContent='Pause'; start(); } else { this.textContent='Resume'; stop(); } });
-  document.getElementById('rt-clear')?.addEventListener('click', function(){ lastId=null; list.innerHTML=''; });
-  start();
+
+  // Live refresh + "Updated just now"
+  const wrap = document.getElementById('events-table-wrap');
+  const ind = document.getElementById('update-indicator');
+  if (!wrap) return;
+  function markUpdated(){
+    if (!ind) return;
+    const t = new Date();
+    ind.textContent = 'Updated just now (' + t.toLocaleTimeString() + ')';
+    ind.classList.add('flash');
+    setTimeout(()=>ind.classList.remove('flash'), 700);
+  }
+  async function refresh(){
+    try {
+      const qs = window.location.search ? window.location.search.substring(1) : '';
+      const resp = await fetch('/events/fragment' + (qs ? ('?' + qs) : ''), {cache: 'no-store'});
+      if (!resp.ok) return;
+      const html = await resp.text();
+      wrap.innerHTML = html;
+      markUpdated();
+    } catch(e){ /* ignore transient errors */ }
+  }
+  setInterval(refresh, 10000);
+  refresh();
 })();
 </script>
 

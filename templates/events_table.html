@@ -1,0 +1,47 @@
+<div class="table-responsive shadow-sm">
+<table class="table table-sm table-hover table-striped align-middle">
+  <thead class="table-light position-sticky top-0">
+    <tr>
+      <th>ID</th><th>Time</th><th>Host</th><th>Fac</th><th>Sev</th><th>App</th><th>Proto</th><th>Src IP</th><th>Message</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ev in events %}
+    <tr>
+      <td><a class="link-primary" href="{{ url_for('event_detail', event_id=ev.id) }}">{{ ev.id }}</a></td>
+      <td><span class="font-monospace">{{ ev.received_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
+      <td>{{ ev.host or '' }}</td>
+      <td>{{ ev.facility if ev.facility is not none else '' }}</td>
+      <td><span class="badge bg-sev-{{ ev.severity if ev.severity is not none else 'x' }}">{{ ev.severity if ev.severity is not none else '' }}</span></td>
+      <td>{{ ev.app_name or '' }}</td>
+      <td>{{ ev.protocol or '' }}</td>
+      <td class="font-monospace">{{ ev.source_ip or '' }}{% if ev.source_port %}:{{ ev.source_port }}{% endif %}</td>
+      <td class="message-cell">{{ ev.message }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
+<nav aria-label="pager" class="mt-3">
+  <ul class="pagination">
+    {% set base_url = base_path ~ ('?' + base_qs if base_qs else '') %}
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a class="page-link" href="{{ base_url }}{{ '&' if base_qs else '?' }}page={{ page-1 }}&per_page={{ per_page }}">Prev</a>
+    </li>
+    <li class="page-item disabled"><span class="page-link">Page {{ page }} / {{ total_pages if total_pages else 1 }}</span></li>
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a class="page-link" href="{{ base_url }}{{ '&' if base_qs else '?' }}page={{ page+1 }}&per_page={{ per_page }}">Next</a>
+    </li>
+  </ul>
+</nav>
+
+{% if total == 0 %}
+<div class="alert alert-info shadow-sm">No events yet. Point a syslog sender at:
+<ul class="mb-0">
+  <li>UDP: <code>udp://&lt;server&gt;:{{ config['SYSLOG_PORT'] }}</code></li>
+  <li>TCP: <code>tcp://&lt;server&gt;:{{ config['SYSLOG_TCP_PORT'] }}</code></li>
+</ul>
+</div>
+{% endif %}

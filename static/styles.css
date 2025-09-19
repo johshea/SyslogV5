@@ -1,6 +1,6 @@
 /* Custom tweaks on top of Bootstrap */
 pre { white-space: pre-wrap; word-wrap: break-word; }
-.message-cell { max-width: 680px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.message-cell { max-width: 680px; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
 .table thead th { position: sticky; top: 0; z-index: 1; }
 /* Severity color helpers (0..7) */
 .badge.bg-sev-0 { background-color: #0d6efd; }
@@ -11,3 +11,25 @@ pre { white-space: pre-wrap; word-wrap: break-word; }
 .badge.bg-sev-5 { background-color: #ffc107; color:#000; }
 .badge.bg-sev-6 { background-color: #fd7e14; }
 .badge.bg-sev-7 { background-color: #dc3545; }
+
+/* Sticky search bar beneath the navbar */
+.sticky-search {
+  position: sticky;
+  top: var(--nav-h, 56px);
+  z-index: 1029; /* just under navbar (which is ~1030) */
+  background: var(--bs-body-bg);
+  padding-top: .5rem;
+  padding-bottom: .5rem;
+}
+
+/* Keep the search collapse always open on large screens */
+@media (min-width: 992px) {
+  .dont-collapse-lg { display: block !important; height: auto !important; visibility: visible !important; }
+}
+/* Chevron animation */
+.chev { display: inline-block; transition: transform .2s ease; }
+.chev.rot { transform: rotate(180deg); }
+
+/* Updated-indicator pulse */
+#update-indicator.flash { animation: flashPulse .6s ease; }
+@keyframes flashPulse { from { opacity: .55; } to { opacity: 1; } }

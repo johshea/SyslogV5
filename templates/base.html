@@ -1,59 +1,139 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Syslog Server</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
-</head>
-<body class="bg-light">
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="{{ url_for('index') }}">Miles Syslog</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarsMain" aria-controls="navbarsMain" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarsMain">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item"><a class="nav-link {% if request.endpoint=='index' %}active{% endif %}" href="{{ url_for('index') }}">Events</a></li>
-        <li class="nav-item"><a class="nav-link {% if request.endpoint and request.endpoint.startswith('manage') %}active{% endif %}" href="{{ url_for('manage') }}">Manage</a></li>
-      </ul>
-      <ul class="navbar-nav ms-auto">
-        {% if current_user.is_authenticated %}
-          <li class="nav-item d-flex align-items-center text-white-50 me-2">
-            <small>Hello, <span class="text-white">{{ current_user.username }}</span></small>
-            {% if current_user.is_admin %}
-              <span class="badge bg-danger ms-2">admin</span>
-            {% elif current_user.is_reviewer %}
-              <span class="badge bg-info text-dark ms-2">reviewer</span>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Syslog Server</title>
+
+    <!-- Theme-able Bootstrap (switches via JS) -->
+    <link id="theme-css" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Minimal helpers (works even if you don’t use static/styles.css) -->
+    <style>
+      :root { --nav-h: 56px; }
+      .sticky-search { position: sticky; top: var(--nav-h); z-index: 1029; background: var(--bs-body-bg); padding: .5rem 0; }
+      @media (min-width: 992px) {
+        .dont-collapse-lg { display: block !important; height: auto !important; visibility: visible !important; }
+      }
+      .chev { display: inline-block; transition: transform .2s ease; }
+      .chev.rot { transform: rotate(180deg); }
+      #update-indicator.flash { animation: flashPulse .6s ease; }
+      @keyframes flashPulse { from { opacity:.55; } to { opacity:1; } }
+      .message-cell { max-width: 680px; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+      body { padding-top: var(--nav-h); }
+    </style>
+  </head>
+  <body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('index') }}">Syslog</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topnav" aria-controls="topnav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="topnav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link {% if request.endpoint=='index' %}active{% endif %}" href="{{ url_for('index') }}">Events</a></li>
+            <li class="nav-item"><a class="nav-link {% if request.endpoint=='manage' %}active{% endif %}" href="{{ url_for('manage') }}">Manage</a></li>
+          </ul>
+
+          <ul class="navbar-nav ms-auto align-items-center">
+            <!-- Theme menu -->
+            <li class="nav-item dropdown me-2">
+              <a class="nav-link dropdown-toggle" href="#" id="themeMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">Theme</a>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeMenu">
+                <li><a class="dropdown-item theme-opt" data-theme="default" href="#">Default</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="darkly" href="#">Darkly</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="slate" href="#">Slate</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="cyborg" href="#">Cyborg</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="lux" href="#">Lux</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="flatly" href="#">Flatly</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="journal" href="#">Journal</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="materia" href="#">Materia</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="minty" href="#">Minty</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="quartz" href="#">Quartz</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="superhero" href="#">Superhero</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="united" href="#">United</a></li>
+                <li><a class="dropdown-item theme-opt" data-theme="yeti" href="#">Yeti</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="px-3 small text-muted">Saved in this browser</li>
+              </ul>
+            </li>
+
+            {% if current_user.is_authenticated %}
+              <li class="nav-item"><span class="navbar-text me-2">Hi, {{ current_user.username }}</span></li>
+              <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
             {% else %}
-              <span class="badge bg-secondary ms-2">user</span>
+              <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
             {% endif %}
-          </li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
-        {% else %}
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
-        {% endif %}
-      </ul>
-    </div>
-  </div>
-</nav>
-
-<main class="container-lg my-3">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for cat, msg in messages %}
-        <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
-          {{ msg }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </ul>
         </div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-  {% block content %}{% endblock %}
-</main>
+      </div>
+    </nav>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+    <!-- Flash messages -->
+    <div class="container mt-3">
+      {% with msgs = get_flashed_messages(with_categories=True) %}
+        {% if msgs %}
+          {% for cat, msg in msgs %}
+            <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+              {{ msg }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- Page content -->
+    <div class="container mb-5">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!-- Theme loader -->
+    <script>
+    (function(){
+      const THEMES = {
+        default: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css",
+        darkly: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/darkly/bootstrap.min.css",
+        slate: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.css",
+        cyborg: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/cyborg/bootstrap.min.css",
+        lux: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/lux/bootstrap.min.css",
+        flatly: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css",
+        journal: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css",
+        materia: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/materia/bootstrap.min.css",
+        minty: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/minty/bootstrap.min.css",
+        quartz: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/quartz/bootstrap.min.css",
+        superhero: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/superhero/bootstrap.min.css",
+        united: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/united/bootstrap.min.css",
+        yeti: "https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/yeti/bootstrap.min.css"
+      };
+      function setTheme(name){
+        const link = document.getElementById('theme-css');
+        if (!link) return;
+        const href = THEMES[name] || THEMES.default;
+        link.setAttribute('href', href);
+        localStorage.setItem('theme', name);
+      }
+      function applyThemeFromStorage(){
+        const saved = localStorage.getItem('theme') || 'default';
+        setTheme(saved);
+      }
+      document.addEventListener('DOMContentLoaded', function(){
+        applyThemeFromStorage();
+        document.querySelectorAll('.theme-opt').forEach(el => {
+          el.addEventListener('click', function(e){
+            e.preventDefault();
+            setTheme(this.getAttribute('data-theme'));
+          });
+        });
+      });
+    })();
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>

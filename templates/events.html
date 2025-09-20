@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="d-flex align-items-center mb-3">
   <h2 class="mb-0">Events</h2>
   <span class="ms-3 text-muted small">Use filters below to narrow results.</span>
@@ -13,6 +14,7 @@
       <span id="searchChevron" class="chev" aria-hidden="true">▾</span>
     </button>
   </div>
+
   <div id="searchCollapse" class="collapse show dont-collapse-lg">
     <form method="get" class="mb-3">
       <div class="input-group">
@@ -20,7 +22,6 @@
         <button class="btn btn-primary" type="submit">Search</button>
         <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Clear</a>
       </div>
-      {# preserve other filters when searching #}
       {% for k, v in args.items() %}
         {% if k not in ['q','page'] and v %}
           <input type="hidden" name="{{ k }}" value="{{ v }}">
@@ -30,7 +31,7 @@
   </div>
 </div>
 
-<!-- Filters card -->
+<!-- Filters -->
 <div class="card shadow-sm mb-3">
   <div class="card-body">
     <form method="get" class="row g-2">
@@ -48,9 +49,10 @@
       </div>
       <div class="col-md-3"><input class="form-control" type="datetime-local" name="start" value="{{ args.get('start','') }}" placeholder="Start"></div>
       <div class="col-md-3"><input class="form-control" type="datetime-local" name="end" value="{{ args.get('end','') }}" placeholder="End"></div>
+
       <div class="col-sm-2">
+        {% set sort = args.get('sort','received_at') %}
         <select class="form-select" name="sort">
-          {% set sort = args.get('sort','received_at') %}
           <option value="received_at" {{ 'selected' if sort=='received_at' else '' }}>Sort: Time</option>
           <option value="host" {{ 'selected' if sort=='host' else '' }}>Host</option>
           <option value="app" {{ 'selected' if sort=='app' else '' }}>App</option>
@@ -61,65 +63,120 @@
         </select>
       </div>
       <div class="col-sm-2">
+        {% set order = args.get('order','desc') %}
         <select class="form-select" name="order">
-          {% set order = args.get('order','desc') %}
           <option value="desc" {{ 'selected' if order=='desc' else '' }}>Desc</option>
           <option value="asc" {{ 'selected' if order=='asc' else '' }}>Asc</option>
         </select>
       </div>
       <div class="col-sm-2"><input class="form-control" name="per_page" value="{{ args.get('per_page','50') }}" placeholder="Per page"></div>
+
       <div class="col-sm-2 d-grid"><button class="btn btn-primary" type="submit">Apply</button></div>
-      <div class="col-sm-2 d-grid">
-        <a class="btn btn-outline-secondary" href="{{ url_for('export_csv') }}?{{ request.query_string.decode() }}">Export CSV</a>
-      </div>
-      <div class="col-sm-2 d-grid">
-        <a class="btn btn-outline-light border" href="{{ url_for('index') }}">Reset</a>
-      </div>
+      <div class="col-sm-2 d-grid"><a class="btn btn-outline-secondary" href="{{ url_for('export_csv') }}?{{ request.query_string.decode() }}">Export CSV</a></div>
+      <div class="col-sm-2 d-grid"><a class="btn btn-outline-light border" href="{{ url_for('index') }}">Reset</a></div>
     </form>
   </div>
 </div>
 
-<!-- Updated indicator + table -->
-<div class="d-flex justify-content-end align-items-center mb-2">
+<!-- Live status + controls -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="d-flex align-items-center gap-2">
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="live-toggle">
+      <label class="form-check-label" for="live-toggle">Live</label>
+    </div>
+    <select id="live-interval" class="form-select form-select-sm" style="width:auto;">
+      <option value="5000">5s</option>
+      <option value="10000" selected>10s</option>
+      <option value="30000">30s</option>
+      <option value="60000">60s</option>
+    </select>
+  </div>
   <span id="update-indicator" class="small text-muted">—</span>
 </div>
-<div id="events-table-wrap">{% include "events_table.html" %}</div>
+
+<!-- Table include -->
+<div id="events-table-wrap">
+  {% include "events_table.html" %}
+</div>
 
 <script>
 (function(){
-  // Chevron rotate on collapse
+  const LIVE_SETTINGS_KEY = 'events_live_settings';
+  const COLLAPSE_KEY = 'events_search_collapse';
+
+  // Collapse state memory
   var col = document.getElementById('searchCollapse');
   var chev = document.getElementById('searchChevron');
-  if (col && chev) {
-    function setChevron(){ if (col.classList.contains('show')) chev.classList.remove('rot'); else chev.classList.add('rot'); }
-    col.addEventListener('shown.bs.collapse', setChevron);
-    col.addEventListener('hidden.bs.collapse', setChevron);
+  function setChevron(){ if (col?.classList.contains('show')) chev?.classList.remove('rot'); else chev?.classList.add('rot'); }
+  function applyCollapseFromStorage(){
+    const saved = localStorage.getItem(COLLAPSE_KEY);
+    if (saved === 'hidden') col?.classList.remove('show'); else col?.classList.add('show');
     setChevron();
   }
+  function listenCollapse(){
+    if (!col) return;
+    col.addEventListener('shown.bs.collapse', function(){ localStorage.setItem(COLLAPSE_KEY, 'shown'); setChevron(); });
+    col.addEventListener('hidden.bs.collapse', function(){ localStorage.setItem(COLLAPSE_KEY, 'hidden'); setChevron(); });
+  }
 
-  // Live refresh + "Updated just now"
   const wrap = document.getElementById('events-table-wrap');
   const ind = document.getElementById('update-indicator');
-  if (!wrap) return;
+  const liveToggle = document.getElementById('live-toggle');
+  const liveIntervalSel = document.getElementById('live-interval');
+  let timer = null;
+
   function markUpdated(){
     if (!ind) return;
     const t = new Date();
     ind.textContent = 'Updated just now (' + t.toLocaleTimeString() + ')';
-    ind.classList.add('flash');
-    setTimeout(()=>ind.classList.remove('flash'), 700);
+    ind.classList.add('flash'); setTimeout(()=>ind.classList.remove('flash'), 700);
   }
+
+  function getCurrentPage(){
+    try { const p = new URLSearchParams(window.location.search).get('page') || '1'; return parseInt(p,10) || 1; }
+    catch(e){ return 1; }
+  }
+
   async function refresh(){
     try {
       const qs = window.location.search ? window.location.search.substring(1) : '';
+      const cur = getCurrentPage();
+      // Auto-pause on pages > 1
+      if (cur > 1) { if (ind) ind.textContent = 'Live paused on page ' + cur; return; }
       const resp = await fetch('/events/fragment' + (qs ? ('?' + qs) : ''), {cache: 'no-store'});
       if (!resp.ok) return;
       const html = await resp.text();
       wrap.innerHTML = html;
       markUpdated();
-    } catch(e){ /* ignore transient errors */ }
+    } catch(e) { /* ignore */ }
   }
-  setInterval(refresh, 10000);
-  refresh();
+
+  function loadLiveSettings(){
+    try { return JSON.parse(localStorage.getItem(LIVE_SETTINGS_KEY)) || {enabled:true, interval:10000}; }
+    catch(e){ return {enabled:true, interval:10000}; }
+  }
+  function saveLiveSettings(s){ localStorage.setItem(LIVE_SETTINGS_KEY, JSON.stringify(s)); }
+
+  function startLive(ms){ stopLive(); timer = setInterval(refresh, ms); refresh(); }
+  function stopLive(){ if (timer) { clearInterval(timer); timer = null; } }
+
+  // Init
+  applyCollapseFromStorage(); listenCollapse();
+
+  const settings = loadLiveSettings();
+  if (liveToggle) liveToggle.checked = !!settings.enabled;
+  if (liveIntervalSel) liveIntervalSel.value = String(settings.interval || 10000);
+  if (settings.enabled) startLive(settings.interval || 10000); else stopLive();
+
+  liveToggle?.addEventListener('change', function(){
+    const s = loadLiveSettings(); s.enabled = this.checked; saveLiveSettings(s);
+    if (s.enabled) startLive(parseInt(liveIntervalSel.value || '10000',10)); else stopLive();
+  });
+  liveIntervalSel?.addEventListener('change', function(){
+    const s = loadLiveSettings(); s.interval = parseInt(this.value || '10000',10); saveLiveSettings(s);
+    if (liveToggle?.checked) startLive(s.interval);
+  });
 })();
 </script>
 

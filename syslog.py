@@ -110,8 +110,10 @@ def parse_syslog_line(line:str):
     if m:
         pri = int(m.group("pri")); fac, sev = decode_pri(pri)
         ts = m.group("ts")
-        try: dt = datetime.fromisoformat(ts.replace("Z","+00:00")).replace(tzinfo=None)
-        except Exception: dt = datetime.utcnow()
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z","+00:00")).replace(tzinfo=None)
+        except Exception:
+            dt = datetime.utcnow()
         return dict(host=m.group("host"), facility=fac, severity=sev, app_name=m.group("app"),
                     procid=None if m.group("procid")=="-" else m.group("procid"),
                     msgid=None if m.group("msgid")=="-" else m.group("msgid"),
@@ -120,8 +122,10 @@ def parse_syslog_line(line:str):
     if m:
         pri = int(m.group("pri")); fac, sev = decode_pri(pri)
         ts = m.group("ts")
-        try: dt = datetime.strptime(f"{ts} {datetime.utcnow().year}", "%b %d %H:%M:%S %Y")
-        except Exception: dt = datetime.utcnow()
+        try:
+            dt = datetime.strptime(f"{ts} {datetime.utcnow().year}", "%b %d %H:%M:%S %Y")
+        except Exception:
+            dt = datetime.utcnow()
         tag = m.group("tag"); appn, procid = tag, None
         m2 = re.match(r"^(?P<app>[^\[\]]+)\[(?P<pid>[^\]]+)\]$", tag)
         if m2: appn, procid = m2.group("app"), m2.group("pid")
@@ -264,9 +268,10 @@ def export_csv():
                     ev.facility if ev.facility is not None else "", ev.severity if ev.severity is not None else "",
                     ev.app_name or "", ev.procid or "", ev.msgid or "",
                     (ev.message or "").replace("\n"," ").replace("\r"," "), ev.protocol or "", ev.source_ip or "", ev.source_port or ""]
-            out=[]; 
+            out=[]
             for v in vals:
-                s=str(v); out.append(("\""+s.replace("\"","\"\"")+"\"") if any(c in s for c in [",","\"","\n"]) else s)
+                s=str(v)
+                out.append(("\""+s.replace("\"","\"\"")+"\"") if any(c in s for c in [",","\"","\n"]) else s)
             yield ",".join(out)+"\n"
     return Response(gen(), mimetype="text/csv", headers={"Content-Disposition":"attachment; filename=events_export.csv"})
 

@@ -15,6 +15,19 @@
   <div class="tab-pane fade {% if active_tab!='users' %}show active{% endif %}" id="logs" role="tabpanel" aria-labelledby="logs-tab">
     <!-- Logs tab content: moved original cards here -->
     <div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Rsyslog Config</h5>
+        <p class="mb-2">Generate a simple forwarder snippet for this server.</p>
+        <div class="btn-group" role="group">
+          <button class="btn btn-outline-secondary" data-mode="udp" id="btn-rsyslog-udp">UDP</button>
+          <button class="btn btn-outline-secondary" data-mode="tcp" id="btn-rsyslog-tcp">TCP</button>
+          <button class="btn btn-outline-primary" data-mode="both" id="btn-rsyslog-both">Both</button>
+        </div>
+      </div>
+    </div>
+  </div>
       <div class="col-lg-4">
         <div class="card h-100 shadow-sm">
           <div class="card-body">
@@ -106,4 +119,45 @@
   }
 })();
 </script>
+
+<!-- Rsyslog Modal -->
+<div class="modal fade" id="rsyslogModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Rsyslog Config</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="rsyslogText" class="form-control" rows="5" readonly></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button class="btn btn-primary" id="copyRsyslog">Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function openSnippet(mode){
+    fetch('/rsyslog-snippet?mode=' + encodeURIComponent(mode)).then(r=>r.text()).then(t=>{
+      document.getElementById('rsyslogText').value = t;
+      var modal = new bootstrap.Modal(document.getElementById('rsyslogModal'));
+      modal.show();
+    });
+  }
+  ['btn-rsyslog-udp','btn-rsyslog-tcp','btn-rsyslog-both'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', e=>{ openSnippet(el.getAttribute('data-mode')); });
+  });
+  const copyBtn = document.getElementById('copyRsyslog');
+  if (copyBtn) copyBtn.addEventListener('click', function(){
+    const ta = document.getElementById('rsyslogText');
+    ta.select(); document.execCommand('copy');
+  });
+})();
+</script>
 {% endblock %}
+

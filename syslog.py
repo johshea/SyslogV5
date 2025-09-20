@@ -231,6 +231,7 @@ def pagination(q):
     return items, total, page, per_page
 
 @app.route("/")
+@login_required
 def index():
     q = apply_sort(build_filters(Event.query))
     items, total, page, per_page = pagination(q)
@@ -239,6 +240,7 @@ def index():
                            base_qs=urlencode(args), args=request.args)
 
 @app.route("/events/fragment")
+@login_required
 def events_fragment():
     # Returns the table + pagination snippet for the current filters
     q = apply_sort(build_filters(Event.query))
@@ -248,6 +250,7 @@ def events_fragment():
                            base_qs=urlencode(args), args=request.args)
 
 @app.route("/event/<int:event_id>")
+@login_required
 def event_detail(event_id):
     ev = Event.query.get_or_404(event_id)
     return render_template("event_detail.html", ev=ev)
@@ -256,6 +259,7 @@ def reviewer_required(): return current_user.is_authenticated and (current_user.
 def admin_required(): return current_user.is_authenticated and current_user.is_admin
 
 @app.route("/export.csv")
+@login_required
 def export_csv():
     if app.config["EXPORT_REQUIRES_LOGIN"] and not reviewer_required(): abort(403)
     q = apply_sort(build_filters(Event.query))
@@ -276,6 +280,7 @@ def export_csv():
     return Response(gen(), mimetype="text/csv", headers={"Content-Disposition":"attachment; filename=events_export.csv"})
 
 @app.route("/api/events/recent")
+@login_required
 def api_events_recent():
     try:
         limit = int(request.args.get("limit", 20))

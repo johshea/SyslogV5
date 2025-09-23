@@ -228,4 +228,3 @@ Confirm the container can reach its own `http://localhost:8000/` and that the ap
 
 ## License
 
-Choose a license appropriate for your project/company (e.g., MIT). This repository currently does not include a license file.
